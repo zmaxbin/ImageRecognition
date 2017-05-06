@@ -1,5 +1,13 @@
 package com.myproject.identImage;
 
+/**
+ * @author 郑志彬
+ * @time 2017/5/6
+ * @Version 2.0
+ */
+
+import com.myproject.identImage.sortMap;
+
 import java.awt.Color;  
 import java.awt.image.BufferedImage;  
 import java.io.File;  
@@ -20,7 +28,8 @@ import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.io.IOUtils;
 
 public class myIdentImage {
-	
+
+  // 下载图片的函数
   public void DownloadImage(int i){
       HttpClient httpClient = new HttpClient();  
       GetMethod getMethod = new GetMethod("http://www.hxee.com.cn/ValidateCode.aspx?rd=0.4402198938492241"); 
@@ -30,10 +39,10 @@ public class myIdentImage {
 	          System.err.println("Method failed: " + getMethod.getStatusLine());  
 	          return ;  
 	      }  
-	      String picName = "E://testImage/";  
+	      String picName = "D://testImage/";  
 	      File filepic=new File(picName);  
 	      if(!filepic.exists())  
-	          filepic.mkdir();  
+	          filepic.mkdir();
 	      File filepicF=new File(picName+String.valueOf(i)+".jpg");  
 	      InputStream inputStream = getMethod.getResponseBodyAsStream();  
 	      OutputStream outStream = new FileOutputStream(filepicF);  
@@ -43,9 +52,10 @@ public class myIdentImage {
     	  System.out.println(e);
       }
   }
-	
+
+  // 去除图片的干扰
   public BufferedImage CleanImpurity(int l){
-	  File file = new File("E://testImage/"+String.valueOf(l)+".jpg");
+	  File file = new File("D://testImage/"+String.valueOf(l)+".jpg");
       BufferedImage BI = null;
       try{
           BI = ImageIO.read(file);
@@ -60,7 +70,7 @@ public class myIdentImage {
       for (int i = minx; i < width; i++) {
           for (int j = miny; j < height; j++) {
               int pixel = BI.getRGB(i, j);//获得像素值
-              rgb[0] = (pixel & 0xff0000) >> 16;
+              rgb[0] = (pixel & 0xff0000) >> 16; //获得RGB值
               rgb[1] = (pixel & 0xff00) >> 8;
               rgb[2] = (pixel & 0xff);
               if(rgb[1]+rgb[2]>80){
@@ -82,6 +92,7 @@ public class myIdentImage {
       return BI;
   }
   
+  //对图像进行分割，这里要求字符之间没有粘连，但是实际中处理完偶尔还是有粘连
   public  List<BufferedImage> splitImage(BufferedImage img){
 
       int width = img.getWidth();
@@ -133,7 +144,7 @@ public class myIdentImage {
   
   public void getNum(BufferedImage img){
 	  if(img == null){
-		  return;
+		  return ;
 	  }else{
 		  String []name_list = {"0","1","2","3","4","5","6","7","8","9","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"};
 		  Map<String, Integer> map = new HashMap<String, Integer>();
@@ -144,12 +155,12 @@ public class myIdentImage {
 		  for(int m=0;m<36;m++){
 			  for(int k=0;k<9;k++){
 				  int cnt = 0;
-				  File file = new File("E:/Trainimg/"+name_list[m]+"_"+String.valueOf(k)+".jpg");
+				  File file = new File("D:/JavaCode/ImageRecognition/ImageRecognition/Trainimg/"+name_list[m]+"_"+String.valueOf(k)+".jpg");
 			      BufferedImage BI = null;
 			      try{
 			          BI = ImageIO.read(file);
 			      }catch(Exception e){
-			    	  System.out.println("E:/Trainimg/"+name_list[m]+"_"+String.valueOf(k)+".jpg");
+			    	  System.out.println("D:/JavaCode/ImageRecognition/ImageRecognition/Trainimg/"+name_list[m]+"_"+String.valueOf(k)+".jpg");
 			          e.printStackTrace();
 			      }
 			      int r_width = BI.getWidth();
@@ -184,29 +195,55 @@ public class myIdentImage {
 				    		  }
 				    	  }
 				      }
+				      // key值为训练样本的编号，value值为像素一样的数量
 				      map.put(name_list[m]+"_"+String.valueOf(k), cnt);
 			      }
 			  }
 		  }
-		  Iterator<String> iter = map.keySet().iterator();
-		  int max = 0;
-		  String fkey="start";
-	      while(iter.hasNext()){
-	          String key=iter.next();
-	          int value = map.get(key);
-	          if(value > max){
-	        	  max = value;
-	        	  fkey = key;
-	          }
-	      }
-	      System.out.print(fkey.split("_")[0]);
+		  sortMymap(map);
 	  }
   }
   
+  //对每张对比图片的相似值进行排序
+  //对排完序后使用KNN算法，取排完之后属于同一类图片数量最多的，但是发现i取1最好
+  public void sortMymap(Map<String, Integer> mymap){
+	  String[] strArray = new String[1];
+	  Map<String, Integer> map = new HashMap<String, Integer>();
+	  List<Map.Entry<String,Integer>> list = sortMap.sort_map(mymap);
+	  int cnt = 0;
+	  for(Map.Entry<String,Integer> mapping:list){
+		  if(cnt<1){
+			  strArray[cnt] = mapping.getKey();
+			  cnt++;
+		  }
+	  }
+	  for(int i=0;i<1;i++){
+		  if(map.containsKey(strArray[i])){
+			  int temp = map.get(strArray[i]);
+			  map.put(strArray[i],temp+1);
+		  }else{
+			  map.put(strArray[i],1);
+		  }
+	  }
+	  Iterator<String> iter = map.keySet().iterator();
+	  int max = 0;
+	  String fkey="start";
+      while(iter.hasNext()){
+          String key=iter.next();
+          int value = map.get(key);
+          if(value > max){
+        	  max = value;
+        	  fkey = key;
+          }
+      }
+      System.out.print(fkey.split("_")[0]);  
+  }
+  
+  
   public static void main(String args[]) {
-	  for(int i=0;i<100;i++){
+	  for(int i=0;i<10;i++){
 		  myIdentImage idcode = new myIdentImage();
-		  idcode.DownloadImage(i);
+//		  idcode.DownloadImage(i);
 		  BufferedImage image = idcode.CleanImpurity(i);
 		  List<BufferedImage> subImages = idcode.splitImage(image);
 		  if(subImages != null){
